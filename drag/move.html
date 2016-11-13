@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <style>
+        #drag_box{
+            position: relative;
+            background: #0000f6;
+            width: 100px;
+            height: 100px;
+        }
+    </style>
+    <script src="Move.js"></script>
+</head>
+<body>
+<div id="drag_box">
+</div>
+
+
+<script>
+    //应用
+    var box=document.getElementById("drag_box");
+    var Mydrag=new Drag(box,{
+        minL: 0,
+        maxL: 100,
+        minT:10,
+        maxT:100,
+        locky: true
+    });
+</script>
+</body>
+</html>
