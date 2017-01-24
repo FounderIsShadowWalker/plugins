@@ -1,0 +1,354 @@
+
+<!doctype html>
+<html dir="ltr" lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <script type="text/javascript">
+        var getEvent=function(event){
+            var e=event||window.event;
+            if(!e){
+                var c=this.getEvent.caller;
+                while(c){
+                    e=c.arguments[0];
+                    if(e&&(Event==e.constructor||MouseEvent==e.constructor)){
+                        break;
+                    }
+                    c=c.caller;
+                }
+            }
+            var target=e.srcElement?e.srcElement:e.target,
+                    currentN=target.nodeName.toLowerCase(),
+                    parentN=target.parentNode.nodeName.toLowerCase(),
+                    grandN=target.parentNode.parentNode.nodeName.toLowerCase();
+            return[e,target,currentN,parentN,grandN];
+        }
+        var Class={
+            create:function(){
+                return function(){
+                    this.initialize.apply(this,arguments);
+                }
+            }
+        }
+        var extend=function(destination,source){
+            for(var property in source){
+                destination[property]=source[property];
+            }
+            return destination;
+        }
+        var TableSorter=Class.create();
+        TableSorter.prototype={
+            initialize:function(options){
+                this.setOptions(options);
+                this.sortTable(this.options.table_id);
+            },
+            setOptions:function(options){
+                this.options={
+                    table_id:null,
+                    per_page:4,
+                    page:1,
+                    records:0,
+                    total:null,
+                    pagination:null,
+                    tbody:null,
+                    up:null,
+                    down:null
+                };
+                extend(this.options,options||{});
+            },
+            ID:function(id){return document.getElementById(id)},
+            CE:function(tag){return document.createElement(tag)},
+            TN:function(){
+                if(arguments.length==1){
+                    return document.getElementsByTagName(arguments[0])
+                }else if(arguments.length==2){
+                    return arguments[0].getElementsByTagName(arguments[1])
+                }
+            },
+            sortElements:[],
+            removeElements:[],
+            addElements:[],
+            checkedElements:[],
+            colsStatus:[],
+            sortTable:function(id,page){
+                var $=this,
+                        table=$.ID(id);
+                if(table==null){throw"this table is inexistence!";return};
+                var tbody=$.TN(table,"tbody")[0],
+                        per_page=$.options.per_page,
+                        page=page||$.options.page,
+                        start_row=(page-1)*per_page,
+                        end_row=page*per_page;
+                $.options.tbody=tbody;
+                if($.sortElements.length==0){
+                    var rows=$.TN(tbody,"tr");
+                    for(var i=0,l=rows.length;i<l;i++){
+                        $.sortElements[i]=rows[i];
+                    };
+                    for(var i=0,l=$.sortElements.length;i<l;i++){
+                        $.removeElements.push($.sortElements[i]);
+                        if(i<per_page){
+                            $.addElements.push($.removeElements[i]);
+                        };
+                    };
+                    var records=$.sortElements.length,
+                            span=$.CE("span"),
+                            cols=$.sortElements[0].innerHTML.replace(/(<\/td>)|(<\/th>)/gi,"┢").split("┢").length-1;
+                    $.options.records=records;
+                    $.options.total=Math.ceil(records/per_page);
+                    $.drawTfoot($,table,cols);
+                    var up=span.cloneNode(true);
+                    up.style.cssText="font:normal lighter 1em/100% sans-serif;color:#f00;background:#A9EA00;";
+                    up.innerHTML="↑";
+                    $.options.up=up;
+                    var down=up.cloneNode(true);
+                    down.innerHTML="↓"
+                    $.options.down=down;
+                }else{
+                    $.removeElements=$.addElements;
+                    $.addElements=new Array;
+                    (end_row>$.sortElements.length)&&(end_row=$.sortElements.length)
+                    for(var i=start_row;i<end_row;i++){
+                        $.addElements.push($.sortElements[i]);
+                    }
+                }
+                $.drawTbody($,$.removeElements,$.addElements)
+                var pagination=$.options.pagination;
+                pagination&&(pagination.innerHTML=$.drawPagination($,page));
+                $.bindClickEvent($,table);
+            },
+            bindClickEvent:function($,table){
+                table.onclick=function(){
+                    var ee=getEvent(),
+                            target=ee[1],
+                            currentN=ee[2],
+                            parentN=ee[3],
+                            grandN=ee[4];
+                    if(currentN=='th'&&grandN=='thead'){
+                        $.sortRow($,target);
+                    }else if(currentN=='a'&&parentN=='div'){
+                        var page=Number(target.getAttribute('title'));
+                        $.sortTable($.options.table_id,page);
+                    };
+                };
+            },
+            drawTbody:function($,remove,add){
+                var fragment=document.createDocumentFragment();
+                for(var i in remove){
+                    $.options.tbody.removeChild(remove[i]);
+                }
+                var l=($.options.per_page>add.length)?add.length:$.options.per_page;
+                for(var i=0;i<l;i++){
+                    fragment.appendChild(add[i]);
+                    remove[i]=add[i];
+                }
+                $.options.tbody.appendChild(fragment);
+            },
+            drawTfoot:function($,table,cols){
+                if($.options.records>$.options.per_page){
+                    var tfoot=$.CE("tfoot"),
+                            tr=$.CE("tr"),
+                            td=$.CE("td"),
+                            pagination=$.CE("div");
+                    table.appendChild(tfoot);
+                    tfoot.appendChild(tr);
+                    tr.appendChild(td);
+                    td.appendChild(pagination);
+                    td.colSpan=cols;
+                    pagination.className="pagination";
+                    $.options.pagination=pagination;
+                }
+            },
+            drawPagination:function($,current){
+                var builder=[];
+                if(current-1<=0){
+                    builder.push('<span class="disabled prev_page"><<</span>');
+                }else{
+                    builder.push('<a class="prev_page" href="javascript:void(0)" title="');
+                    builder.push(current-1);
+                    builder.push('"><<</a>');
+                };
+                for(var i=current-5;i<current;i++){
+                    if(i>0){
+                        builder.push('<a class="next_page" href="javascript:void(0)" title="');
+                        builder.push(i);
+                        builder.push('">');
+                        builder.push(i);
+                        builder.push('</a>');
+                    }
+                }
+                builder.push('<span class="current">');
+                builder.push(current);
+                builder.push('</span>');
+                builder.push('<input type="text" title="page">')
+                for(var i=1;i<6;i++){
+                    if(current+i<=$.options.total){
+                        builder.push('<a class="next_page" href="javascript:void(0)" title="');
+                        builder.push(current+i);
+                        builder.push('">');
+                        builder.push(current+i);
+                        builder.push('</a>');
+                    }
+                }
+                if(current+1<=$.options.total){
+                    builder.push('<a class="next_page" href="javascript:void(0)" title="');
+                    builder.push(current+1);
+                    builder.push('">>></a>');
+                };
+                return builder.join('');
+            },
+            sortRow:function($,target){
+                var colIndex=target.cellIndex,
+                        index=$.sortElements,
+                        up=$.options.up,
+                        down=$.options.down;
+                $.colsStatus[colIndex]=($.colsStatus[colIndex]==null)?1
+                        :$.colsStatus[colIndex]*-1;
+                index.sort($.sortby(colIndex,$));
+                if($.colsStatus[colIndex]>0){
+                    target.appendChild(up);
+                    if(/\↓/.test(target.innerHTML)){
+                        target.removeChild(down);
+                    }
+                }else{
+                    target.appendChild(down);
+                    if(/\↑/.test(target.innerHTML)){
+                        target.removeChild(up);
+                    }
+                }
+                $.drawTbody($,$.addElements,index);
+                for(var i=0,l=$.checkedElements.length;i<l;i++){
+                    $.checkedElements[i].checked=true;
+                }
+            },
+            sortby : function (colIndex,$) {
+                var _cellIndex = colIndex;
+                return function (row1, row2) {
+                    var value1,value2,result = 0;
+                    if(/msie|MSIE 6/.test(navigator.userAgent)){
+                        value1 = $.format(row1.children[_cellIndex].innerHTML);
+                        value2 = $.format(row2.children[_cellIndex].innerHTML);
+                    }else{
+                        value1 = $.format(row1.cells[_cellIndex].innerHTML);
+                        value2 = $.format(row2.cells[_cellIndex].innerHTML);
+                    }
+                    switch(typeof value1){
+                        case "string":
+                            result = value1.localeCompare(value2);
+                            break;
+                        case "number" :
+                            result = value1 - value2;
+                            break;
+                        case "boolean" : /*处理radio与checkbox*/
+                            var input1,value2;
+                            if(/msie|MSIE 6/.test(navigator.userAgent)){
+                                input1 = $.TN(row1.children[_cellIndex],'input')[0];
+                                value2 = $.TN(row2.children[_cellIndex],'input')[0].checked;
+                            }else{
+                                input1 = $.TN(row1.cells[_cellIndex],'input')[0];
+                                value2 = $.TN(row2.cells[_cellIndex],'input')[0].checked;
+                            }
+                            value1 = input1.checked;
+                            value1 = (value1 == true) ? 1 :0;
+                            if(value1){
+                                $.checkedElements.push(input1);
+                            }
+                            value2 = (value2 == true) ? 1 :0;
+                            result = value1 - value2;
+                            break;
+                    }
+                    result *=  $.colsStatus[_cellIndex];
+                    return result;
+                };
+            },
+
+            format:function(s){
+                if(/^\d+$/.test(s)){
+                    return parseInt(s,10)
+                }else if(/^(-?\d+)(\.\d+)$/.test(s)){
+                    return parseFloat(s,10)
+                }else if(/^(\d{4})-(\d{1,2})-(\d{1,2})$/.test(s)){
+                    return Date.parse(s.replace(/\-/g,'/'));
+                }else if(/\%$/.test(s)){
+                    return Number(s.replace("%",""));
+                }else if(s.toLowerCase().search(/(type=)"?(radio)"?/)!=-1){
+                    return true;
+                }else if(s.toLowerCase().search(/(type=)"?(checkbox)"?/)!=-1){
+                    return false;
+                }else{
+                    return s.toUpperCase()
+                };
+            }
+        }
+        window.onload=function(){
+            new TableSorter({table_id:"ror"});
+        }
+    </script>
+    <style type="text/css">
+        .filament_table{border-collapse:collapse!important;border-top:1px solid #A9EA00;border-left:1px solid #C1DAD7;table-layout:fixed;}
+        .filament_table thead th{background:#A9EA00;color:#FCDE6A;border-bottom:1px solid #C1DAD7;border-right:1px solid #C1DAD7;padding:2px 5px;}
+        .filament_table tbody td,.filament_table tbody th{border-bottom:1px solid #C1DAD7;border-right:1px solid #C1DAD7;color:#76C2C3;padding:2px 5px;}
+        .filament_table tbody td a{text-decoration:none;color:#76C2C3;}
+        .filament_table tbody tr:nth-child(even){background:#F7FBFF;}
+        .filament_table tfoot td{border-bottom:1px solid #C1DAD7;border-right:1px solid #C1DAD7;background:#A9EA00;color:#FCDE6A;font-size:12px;padding:0;}
+        .pagination{margin:0;padding:1px 20px;}
+        .pagination a{border:1px solid #fff;text-decoration:none;color:#FCDE6A;font-weight:bolder;margin:2px;padding:2px 5px;}
+        .pagination input{color:#A9EA00;width:20px;}
+        .pagination a:hover,.pagination a:active{border:1px solid #D1EB8D;background:#D1EB8D;color:#f06e10;}
+        .pagination span.current{border:1px solid #3F8066;font-weight:700;background-color:#3F8066;color:#FFF;margin:2px;padding:2px 5px;}
+        .pagination span.disabled{border:1px solid #D1EB8D;color:#ddd;margin:2px;padding:2px 5px;}
+        .grey{background:#f8f8f8;}
+        .yellow{background:#ffc;}
+        .even{background:#f7fbff;}
+        .hover{background:#CCE593!important;}
+    </style>
+    <title>一步步教你实现表格排序</title>
+</head>
+<body>
+<table class="filament_table" id="ror" width="85%" >
+    <thead>
+    <tr>
+        <th width="250px">字符串</th><th>正整数</th><th>浮点数</th><th>百分比</th><th>日期</th><th width="100px">CheckBox</th><th>Radio</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/07/14/1523104.html">动态添加样式表规则</a></td><td>56</td><td>-0.99</td><td>60%</td><td>2008-04-12</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/07/17/1525583.html">强制函数自动执行</a></td><td>35</td><td>4.555</td><td>77%</td><td>2008-04-16</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/08/07/1541346.html">body的子元素的定位问题</a></td><td>32</td><td>-0.07</td><td>35%</td><td>1966-04-16</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/08/01/1536710.html">iframe元素用法总结</a></td><td>242</td><td>-23.67</td><td>90%</td><td>2003-02-28</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/07/27/1532401.html">一步步教你实现跨游览器的JS日历</a></td><td>88</td><td>111.33</td><td>23%</td><td>1988-04-16</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/07/17/1525637.html">移除DOM节点</a></td><td>184</td><td>1.23</td><td>12%</td><td>1999-03-15</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/08/08/1541914.html">一步步教你实现纯CSS的柱形图</a></td><td>3432</td><td>8.22</td><td>42%</td><td>1989-01-17</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/08/13/1544365.html">一步步教你实现表格排序(第一部分)</a></td><td>2451</td><td>7.22</td><td>32%</td><td>1912-08-15</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    <tr>
+        <td><a href="http://www.cnblogs.com/rubylouvre/archive/2009/07/23/1529029.html">利用thinking sphinx实现全文检索</a></td><td>456</td><td>2.34</td><td>61%</td><td>1976-02-15</td><th><input type="checkbox" /></th>
+        <th><input type="radio" name="c" /></th>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>
