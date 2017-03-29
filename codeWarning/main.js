@@ -1,7 +1,7 @@
 var node_path=require('path');
 var fs=require('fs');
 var excludePath = ['bower', 'node_modules'];
-var ext = ['scss', 'js', 'html'];
+var ext = ['scss', 'js', 'html', 'jsx'];
 var start = 0, end = 0, last = 0;
 const limitation = 10;
 
@@ -127,9 +127,9 @@ function readFiles(over, cb) {
     }
 }
 
-module.exports  =  function wrap() {
+module.exports  =  function wrap(path) {
     return new Promise(function (resolve, reject) {
-        getDir('/Users/founder/Documents/Node', function (over) {
+        getDir(path, function (over) {
             readFiles(over, function (output) {
                 start > 0 ? (end = output) : (start = output, last = output);
                 console.log(start,  end, last);

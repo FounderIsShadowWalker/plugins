@@ -1,10 +1,10 @@
 var test = require('./main.js');
 var command = require('./process.js');
 var limitation = 500;
-
+const path = '/Users/founder/Documents/Node/reactWork';
 
 setInterval(function () {
-    test().then(function (para) {
+    test(path).then(function (para) {
         if(JSON.parse(para).end != 0 && JSON.parse(para).end - JSON.parse(para).start > limitation) {
             //处理复制粘贴
             if(JSON.parse(para).end - JSON.parse(para) > 10){
